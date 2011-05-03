@@ -3,9 +3,8 @@ using System.Text;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Net;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using System.Web.Script.Serialization;
 
 namespace RealmAPI.Test
 {
@@ -13,11 +12,12 @@ namespace RealmAPI.Test
     public class RealmExplorerTest
     {
         public IRealmExplorer<Realm> rE;
-
+        public JavaScriptSerializer jsSerializer;
         [TestInitialize]
         public void Setup()
         {
             rE = new RealmExplorer();
+            jsSerializer = new JavaScriptSerializer();
         }
 
         //US - Americas; 241 realms as of 04/22/2011
@@ -67,11 +67,11 @@ namespace RealmAPI.Test
         {
             var realmList = rE.GetRealmsByType("pvp");
             var realmsJson = rE.GetRealmsByTypeAsJson("pvp");
-            var jsonObject = JObject.Parse(realmsJson);
 
-            var realmListFromJson = JsonConvert.DeserializeObject<IEnumerable<Realm>>(jsonObject["realms"].ToString());
+            var jsonObjects = (Dictionary<string, object>)(jsSerializer.DeserializeObject(realmsJson));
+            var realmListFromJson = jsSerializer.ConvertToType<IEnumerable<Realm>>(jsonObjects["realms"]);
 
-            var allCollectedRealmsArePvp = realmListFromJson.Any() && 
+            var allCollectedRealmsArePvp = realmListFromJson.Any() &&
                 realmListFromJson.All(r => r.type.Equals("pvp", StringComparison.InvariantCultureIgnoreCase));
 
             Assert.IsTrue(allCollectedRealmsArePvp);
@@ -83,10 +83,10 @@ namespace RealmAPI.Test
         {
             var realmList = rE.GetRealmsByType("pvp");
             var realmsJson = rE.GetRealmsByTypeAsJson("pve");
-            var jsonObject = JObject.Parse(realmsJson);
 
-            var realmListFromJson = JsonConvert.DeserializeObject<IEnumerable<Realm>>(jsonObject["realms"].ToString());
-            
+            var jsonObjects = (Dictionary<string, object>)(jsSerializer.DeserializeObject(realmsJson));
+            var realmListFromJson = jsSerializer.ConvertToType<IEnumerable<Realm>>(jsonObjects["realms"]);
+
             var allCollectedRealmsArePve = realmListFromJson
                 .All(r => r.type.Equals("pve", StringComparison.InvariantCultureIgnoreCase));
 
@@ -111,9 +111,9 @@ namespace RealmAPI.Test
         {
             var realmList = rE.GetRealmsByStatus(true);
             var realmsJson = rE.GetRealmsByStatusAsJson(true);
-            var jsonObject = JObject.Parse(realmsJson);
 
-            var realmListFromJson = JsonConvert.DeserializeObject<IEnumerable<Realm>>(jsonObject["realms"].ToString());
+            var jsonObjects = (Dictionary<string, object>)(jsSerializer.DeserializeObject(realmsJson));
+            var realmListFromJson = jsSerializer.ConvertToType<IEnumerable<Realm>>(jsonObjects["realms"]);
 
             //All servers being down is likely(maintenance) and will cause test to fail
             var allCollectedRealmsAreOnline = realmListFromJson.Any() &&
@@ -140,9 +140,9 @@ namespace RealmAPI.Test
         {
             var realmList = rE.GetRealmsByQueue(false);
             var realmsJson = rE.GetRealmsByQueueAsJson(false);
-            var jsonObject = JObject.Parse(realmsJson);
-
-            var realmListFromJson = JsonConvert.DeserializeObject<IEnumerable<Realm>>(jsonObject["realms"].ToString());
+            
+            var jsonObjects = (Dictionary<string, object>)(jsSerializer.DeserializeObject(realmsJson));
+            var realmListFromJson = jsSerializer.ConvertToType<IEnumerable<Realm>>(jsonObjects["realms"]);
 
             //All servers getting queues is unlikely but possible and will cause test to fail
             var allCollectedRealmsDoNotHaveQueues = realmListFromJson.Any() &&
@@ -167,9 +167,9 @@ namespace RealmAPI.Test
         {
             var realmList = rE.GetRealmsByPopulation("medium");
             var realmsJson = rE.GetRealmsByPopulationAsJson("medium");
-            var jsonObject = JObject.Parse(realmsJson);
 
-            var realmListFromJson = JsonConvert.DeserializeObject<IEnumerable<Realm>>(jsonObject["realms"].ToString());
+            var jsonObjects = (Dictionary<string, object>)(jsSerializer.DeserializeObject(realmsJson));
+            var realmListFromJson = jsSerializer.ConvertToType<IEnumerable<Realm>>(jsonObjects["realms"]);
 
             //All servers getting queues is unlikely but possible and will cause test to fail
             var allCollectedRealmsHaveMedPopulation = realmListFromJson.Any() &&
@@ -251,9 +251,9 @@ namespace RealmAPI.Test
         {
             var realmList = rE.GetMultipleRealmsViaQuery("?realm=Medivh&realm=Blackrock");
             var realmsJson = rE.GetRealmsViaQueryAsJson("?realm=Medivh&realm=Blackrock");
-            var jsonObject = JObject.Parse(realmsJson);
 
-            var realmListFromJson = JsonConvert.DeserializeObject<IEnumerable<Realm>>(jsonObject["realms"].ToString());
+            var jsonObjects = (Dictionary<string, object>)(jsSerializer.DeserializeObject(realmsJson));
+            var realmListFromJson = jsSerializer.ConvertToType<IEnumerable<Realm>>(jsonObjects["realms"]);
 
             var allCollectedRealmsAreValid = realmListFromJson.Any() &&
                 realmListFromJson.All(r => r.name.Equals("Medivh", StringComparison.InvariantCultureIgnoreCase)
@@ -356,6 +356,17 @@ namespace RealmAPI.Test
             ThrowsException<WebException>(() => rE.GetAllRealms(), "The remote name could not be resolved: 'foo.battle.net'");
         }
 
+
+        [TestMethod]
+        public void GetRealms_And_CheckOnUnicode()
+        {
+            rE.Region = "eu";
+            var realms = rE.GetMultipleRealms("Седогрив").First();
+            Assert.IsNotNull(realms);
+
+            Assert.AreEqual(realms.name, "Вечная Песня");
+            
+        }
         //tw - Taiwan
         //sea - Southeast Asia
         //china - China
